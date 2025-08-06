@@ -10,8 +10,11 @@
 
 #define MAX_NOTES 2000
 #define LEVEL_FILENAME "notes.txt"
-#define TARGET_FPS 60
+#define TARGET_FPS 30
 #define FRAME_DELAY (1000 / TARGET_FPS)
+
+#define ALTURA_DA_PISTA 20
+#define TEMPO_DE_ANTEVISAO 4.0f
 
 // Estrutura para guardar uma única nota do mapa
 typedef struct {
@@ -167,8 +170,6 @@ int main() {
 
         system("clear");
 
-        const float TEMPO_DE_ANTEVISAO = 2.0f;
-        const int ALTURA_DA_PISTA = 20;
         char pista_visual[ALTURA_DA_PISTA][5];
 
         for (int i = 0; i < ALTURA_DA_PISTA; i++) {
