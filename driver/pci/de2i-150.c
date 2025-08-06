@@ -31,8 +31,8 @@ static void __exit my_exit (void);
 
 /* char device system calls */
 
-static int	my_open   (struct inode*, struct file*);
-static int 	my_close  (struct inode*, struct file*);
+static int	    my_open   (struct inode*, struct file*);
+static int 	    my_close  (struct inode*, struct file*);
 static ssize_t 	my_read   (struct file*, char __user*, size_t, loff_t*);
 static ssize_t 	my_write  (struct file*, const char __user*, size_t, loff_t*);
 static long int	my_ioctl  (struct file*, unsigned int, unsigned long);
@@ -84,14 +84,19 @@ static void __iomem* bar0_mmio = NULL;
 static void __iomem* read_pointer  = NULL;
 static void __iomem* write_pointer = NULL;
 
+#define mem_size 4096
+
+uint32_t *kernel_buffer_read = NULL;
+uint32_t *kernel_buffer_write = NULL;
+
 /* peripherals names for debugging in dmesg */
 static const char* peripheral[] = {
-	"switches",
-	"p_buttons",
-	"display_l",
-	"display_r",
-	"green_leds",
-	"red_leds"
+    "switches",
+    "p_buttons",
+    "display_l",
+    "display_r",
+    "green_leds",
+    "red_leds"
 };
 
 enum perf_names_idx {

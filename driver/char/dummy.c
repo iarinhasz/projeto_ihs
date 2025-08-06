@@ -69,7 +69,7 @@ static int __init my_init(void)
 	}
 	printk("my_driver: device number %d was registered!\n", MAJOR(my_device_nbr));
 
-	/* 2. create class : appears at /sys/class */
+	/* 2. create class : appears at /sys/class (to create the device node/file managed by system) */
 
 	if ((my_class = class_create(THIS_MODULE, DRIVER_CLASS)) == NULL) {
 		printk("my_driver: device class count not be created!\n");

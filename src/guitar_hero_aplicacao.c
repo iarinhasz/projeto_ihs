@@ -10,6 +10,8 @@
 
 #define MAX_NOTES 2000
 #define LEVEL_FILENAME "notes.txt"
+#define TARGET_FPS 60
+#define FRAME_DELAY (1000 / TARGET_FPS)
 
 // Estrutura para guardar uma única nota do mapa
 typedef struct {
@@ -27,7 +29,7 @@ typedef struct {
     int score;
     int combo;
     
-    struct timeval start_time; // Momento em que o jogo começou
+    Uint32 start_time; // Momento em que o jogo começou
 } GameState;
 
 //mapeamento dinamico
@@ -68,7 +70,7 @@ int kbhit(void) {
 int main() {
     enableRawMode();
 
-    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) { // Inicializa também o timer da SDL
         printf("Nao foi possivel inicializar o SDL: %s\n", SDL_GetError());
         return -1;
     }
@@ -79,7 +81,7 @@ int main() {
         return -1;
     }
 
-    const char *arquivo_musica = "musica_piano.mp3";
+    const char *arquivo_musica = "musica_sweet.mp3";
 
     Mix_Music *musica_de_fundo = Mix_LoadMUS(arquivo_musica);
     if (musica_de_fundo == NULL) {
@@ -101,17 +103,22 @@ int main() {
         tempo_final_do_nivel = 5.0f;
     }
 
+
     sleep(3);
-    
+
+    Uint32 frame_start_time;
+    int frame_time_spent;
     int jogo_esta_rodando = 1;
     double tempo_decorrido = 0;
 
-    while (jogo_esta_rodando) {
+    while (jogo_esta_rodando && Mix_PlayingMusic()) {
+
+        frame_start_time = SDL_GetTicks();
 
         struct timeval tempo_atual;
         gettimeofday(&tempo_atual, NULL);
-        tempo_decorrido = (double)(tempo_atual.tv_sec - game_state.start_time.tv_sec) +
-                        (double)(tempo_atual.tv_usec - game_state.start_time.tv_usec) / 1000000.0;
+        
+        double tempo_decorrido = (double)(SDL_GetTicks() - game_state.start_time) / 1000.0;
 
         int jogador_apertou_pista = -1; 
         
@@ -123,7 +130,7 @@ int main() {
                 printf("\nCtrl+C pressionado. Encerrando o jogo...\n");
                 continue;
             }
-            if (ch >= '0' && ch <= '7') {
+            if (ch >= '0' && ch <= '4') {
                 jogador_apertou_pista = ch - '0';
                 printf(">>> JOGADOR APERTOU A PISTA: %d\n", jogador_apertou_pista);
             }
@@ -157,16 +164,54 @@ int main() {
         
         }
         
-        printf("=======================================\n");
-        printf("Tempo: %.2f s\n", tempo_decorrido);
-        printf("Pontos: %d\n", game_state.score);
-        printf("Combo: x%d\n", game_state.combo);
+
+        system("clear");
+
+        const float TEMPO_DE_ANTEVISAO = 2.0f;
+        const int ALTURA_DA_PISTA = 20;
+        char pista_visual[ALTURA_DA_PISTA][5];
+
+        for (int i = 0; i < ALTURA_DA_PISTA; i++) {
+            sprintf(pista_visual[i], "    "); // 4 espaços
+        }
+
+        for (int i = 0; i < game_state.note_count; i++) {
+            if (!game_state.level_notes[i].foi_processada) {
+                float tempo_da_nota = game_state.level_notes[i].timestamp;
+                float dist_temporal = tempo_da_nota - tempo_decorrido;
+
+                // Verifica se a nota está dentro do nosso campo de visão
+                if (dist_temporal >= 0 && dist_temporal < TEMPO_DE_ANTEVISAO) {
+                    // Converte a distância temporal numa posição na pista
+                    int linha = ALTURA_DA_PISTA - 1 - (int)((dist_temporal / TEMPO_DE_ANTEVISAO) * ALTURA_DA_PISTA);
+                    
+                    if (linha >= 0 && linha < ALTURA_DA_PISTA) {
+                        // Coloca o número da pista (1 a 4) no local correto
+                        int pista_da_nota = game_state.level_notes[i].note_index;
+                        pista_visual[linha][pista_da_nota] = (pista_da_nota + 1) + '0'; // Converte 0-3 para '1'-'4'
+                    }
+                }
+            }
+        }
+
+        printf("PISTA 1  2  3  4\n");
+        printf("+-- -- -- --+\n");
+        for (int i = 0; i < ALTURA_DA_PISTA; i++) {
+            printf("| %c  %c  %c  %c |\n", pista_visual[i][0], pista_visual[i][1], pista_visual[i][2], pista_visual[i][3]);
+        }
+        printf("+-- -- -- --+  <-- ZONA DE ACERTO\n");
+
+        printf("Tempo: %.2f s | Pontos: %d | Combo: x%d\n", tempo_decorrido, game_state.score, game_state.combo);
+
+        frame_time_spent = SDL_GetTicks() - frame_start_time;
+        if (frame_time_spent < FRAME_DELAY) {
+            SDL_Delay(FRAME_DELAY - frame_time_spent);
+        }
 
         usleep(16000);
     }
 
-    printf("\nFim do Jogo! Pontuacao Final: %d\n", game_state.score);
-    
+    printf("\nA musica terminou! Pontuacao Final: %d\n", game_state.score);
     // Libera a memória da música
     Mix_FreeMusic(musica_de_fundo);
     musica_de_fundo = NULL;
@@ -181,7 +226,7 @@ int main() {
 void inicializar_jogo(GameState *state) {
     state->score = 0;
     state->combo = 1;
-    gettimeofday(&state->start_time, NULL);
+    state->start_time=SDL_GetTicks();
     for (int i = 0; i < state->note_count; i++) {
         state->level_notes[i].foi_processada = 0;
     }
@@ -207,19 +252,19 @@ void carregar_nivel(GameState *state) {
 
             switch (note_name[0]) {
                 case 'C':
+                case 'D':
                     pista_mapeada = 0; // Pista 0 (Verde)
                     break;
-                case 'D':
+                case 'E':
+                case 'F':
                     pista_mapeada = 1; // Pista 1 (Vermelho)
                     break;
-                case 'E':
+                case 'G':
+                case 'A':
                     pista_mapeada = 2; // Pista 2 (Amarelo)
                     break;
-                case 'G':
+                case 'B':
                     pista_mapeada = 3; // Pista 3 (Azul)
-                    break;
-                case 'A':
-                    pista_mapeada = 4; // Pista 4 (Laranja)
                     break;
             }
 
